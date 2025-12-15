@@ -47,7 +47,7 @@ def extract_features(ts_1d):
 
     mfcc = librosa.feature.mfcc(
         y=ts.astype(np.float32),
-        sr=cfg["SR"],          # dummy SR (konsisten)
+        sr=cfg["SR"],          # dummy sample rate (konsisten)
         n_mfcc=cfg["N_MFCC"]
     )
 
@@ -81,7 +81,7 @@ def load_mp3(uploaded_file):
     # load audio → mono
     wav, _ = librosa.load(
         tmp_path,
-        sr=None,        # biarkan asli, tapi TIDAK kita pakai secara absolut
+        sr=None,     # sample rate asli (tidak digunakan absolut)
         mono=True
     )
 
@@ -89,14 +89,42 @@ def load_mp3(uploaded_file):
     return wav.astype(np.float32)
 
 # =============================
-# UI
+# UI - MAIN PAGE
 # =============================
 st.title("🦆 Duck & Goose Classifier")
+
 st.write("""
-Aplikasi ini menerima **file MP3 atau NPY** dan memprediksi
-jenis burung menggunakan **MFCC + SVM**.
+Aplikasi ini menerima **file audio (.mp3)** atau **file sinyal (.npy)**
+dan memprediksi **jenis burung (duck & goose)**
+menggunakan pendekatan **MFCC + Support Vector Machine (SVM)**.
 """)
 
+# =============================
+# SIDEBAR - INFO DATA AUDIO
+# =============================
+st.sidebar.markdown("""
+## 🎧 Sumber Data Audio Uji
+
+Sebagai data uji tambahan, tersedia kumpulan audio suara **duck dan goose**
+yang disimpan pada Google Drive berikut:
+
+🔗 https://drive.google.com/drive/folders/12P8EAjT3BD-pahCghr9bzeCd11xVn0D3
+
+Folder tersebut berisi:
+- Rekaman suara duck dan goose
+- Audio diunduh dari platform **YouTube**
+- Format file **.mp3**
+
+Audio pada folder tersebut dapat diunduh dan
+**diunggah ke aplikasi Streamlit ini**
+untuk dilakukan proses klasifikasi otomatis.
+""")
+
+st.divider()
+
+# =============================
+# FILE UPLOADER
+# =============================
 uploaded = st.file_uploader(
     "Upload file (.mp3 atau .npy)",
     type=["mp3", "npy"]
@@ -110,20 +138,29 @@ if uploaded is not None:
     if uploaded.name.endswith(".mp3"):
         ts = load_mp3(uploaded)
         st.info("Input MP3 berhasil dimuat")
+        st.audio(uploaded)
     else:
         ts = np.load(uploaded)
+        st.info("Input NPY berhasil dimuat")
 
+    # =============================
+    # VALIDATION
+    # =============================
     if ts.ndim != 1:
         st.error("Input harus berupa sinyal 1D.")
     else:
         pred_label, probs, ts_norm = predict(ts)
 
-        # ===== RESULT =====
+        # =============================
+        # RESULT
+        # =============================
         st.subheader("✅ Hasil Prediksi")
         st.markdown(f"### **{pred_label}**")
 
-        # ===== CONFIDENCE =====
-        st.subheader("📊 Confidence")
+        # =============================
+        # CONFIDENCE
+        # =============================
+        st.subheader("📊 Confidence Prediksi")
         fig1 = plt.figure(figsize=(6,3))
         plt.bar(le.classes_, probs)
         plt.xticks(rotation=45, ha="right")
@@ -131,7 +168,9 @@ if uploaded is not None:
         plt.tight_layout()
         st.pyplot(fig1)
 
-        # ===== WAVEFORM =====
+        # =============================
+        # WAVEFORM
+        # =============================
         st.subheader("📈 Waveform (Normalized)")
         fig2 = plt.figure(figsize=(8,3))
         plt.plot(ts_norm)
